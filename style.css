@@ -335,3 +335,294 @@ textarea {
     justify-content: flex-end;
     margin-top: 1.5rem;
 }
+
+
+/* ============================================================================
+   IMAGE FUNCTIONALITY STYLES - Add to style.css
+   ============================================================================ */
+
+/* Window card with image layout */
+.window-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.window-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Image container */
+.window-image-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: #f7fafc;
+}
+
+.window-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    cursor: pointer;
+}
+
+.window-image:hover {
+    transform: scale(1.05);
+}
+
+/* Image states */
+.window-image.image-loading {
+    opacity: 0.7;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading-shimmer 2s infinite;
+}
+
+.window-image.image-error {
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+.window-image.image-loaded {
+    opacity: 1;
+}
+
+@keyframes loading-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Image overlay */
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.window-image-container:hover .image-overlay {
+    opacity: 1;
+}
+
+.image-zoom-hint {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 4px;
+}
+
+/* Window content */
+.window-content {
+    padding: 1.5rem;
+}
+
+.window-content h3 {
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+    font-size: 1.3rem;
+}
+
+.window-meta {
+    color: #718096;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.window-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.window-actions button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+/* Image Modal */
+.image-modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    animation: fadeIn 0.3s ease;
+}
+
+.image-modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-image-container {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.modal-caption {
+    color: white;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+    text-align: center;
+    max-width: 600px;
+    padding: 0 1rem;
+}
+
+.modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s ease;
+}
+
+.modal-close:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* Form image preview */
+.image-preview {
+    margin-top: 0.5rem;
+}
+
+.form-image-preview {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    object-fit: cover;
+}
+
+/* Grid layout adjustments */
+.window-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .window-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .window-image-container {
+        height: 180px;
+    }
+    
+    .modal-image-container {
+        max-width: 95%;
+        max-height: 95%;
+    }
+    
+    .modal-image {
+        max-height: 70vh;
+    }
+    
+    .modal-caption {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .window-content {
+        padding: 1rem;
+    }
+    
+    .window-image-container {
+        height: 150px;
+    }
+}
+
+/* Loading states */
+.lazy-image {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.lazy-image.image-loaded {
+    opacity: 1;
+}
+
+/* Accessibility improvements */
+.window-image:focus {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
+}
+
+.modal-image:focus {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .image-overlay {
+        background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .modal-close {
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid white;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .window-image,
+    .image-overlay,
+    .lazy-image {
+        transition: none;
+    }
+    
+    .window-image:hover {
+        transform: none;
+    }
+    
+    .loading-shimmer {
+        animation: none;
+    }
+}
