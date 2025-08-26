@@ -319,7 +319,8 @@ function showItemDetail(itemId) {
     }
     
     if (item.license) {
-        const licenseText = item.license.split('/').pop();
+        const licenseText = typeof item.license === 'string' ? 
+            item.license.split('/').pop() : item.license;
         properties.push(['License', licenseText]);
     }
     
