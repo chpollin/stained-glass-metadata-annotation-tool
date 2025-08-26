@@ -7,6 +7,18 @@
 let allItems = {};
 let filteredItems = [];
 let annotations = {}; // itemId -> array of annotations
+let activeFilters = {
+    periodFrom: '',
+    periodTo: '',
+    locations: [],
+    subjects: [],
+    elementTypes: []
+}; // Active filter criteria
+let availableFilters = {
+    locations: new Set(),
+    subjects: new Set(),
+    elementTypes: new Set()
+}; // Available filter options
 let currentView = 'grid';
 let currentPage = 1;
 let itemsPerPage = 50;
@@ -15,6 +27,7 @@ let itemsPerPage = 50;
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     loadAnnotations();
+    loadFilters();
     setupEventListeners();
 });
 
@@ -50,6 +63,9 @@ async function loadData() {
         
         // Convert to array for easier manipulation
         filteredItems = Object.values(allItems);
+        
+        // Build filter options
+        buildFilterOptions();
         
         // Update stats
         updateStats();
@@ -679,4 +695,292 @@ function handleFileImport(event) {
         // Clear the input so the same file can be imported again
         event.target.value = '';
     }
+}
+
+// === ADVANCED FILTERING SYSTEM ===
+
+// Build filter options from loaded data
+function buildFilterOptions() {
+    console.log('Building filter options...');
+    
+    // Clear existing options
+    availableFilters.locations.clear();
+    availableFilters.subjects.clear();
+    availableFilters.elementTypes.clear();
+    
+    // Process all items to collect unique filter values
+    Object.values(allItems).forEach(item => {
+        // Collect locations
+        if (item.location?.geonameId) {
+            availableFilters.locations.add(item.location.geonameId);
+        }
+        
+        // Collect subjects
+        if (item.subject) {
+            if (Array.isArray(item.subject)) {
+                item.subject.forEach(subj => {
+                    const subjText = typeof subj === 'object' ? subj.code || subj.label : subj;
+                    if (subjText) availableFilters.subjects.add(subjText);
+                });
+            } else {
+                const subjText = typeof item.subject === 'object' ? item.subject.code || item.subject.label : item.subject;
+                if (subjText) availableFilters.subjects.add(subjText);
+            }
+        }
+        
+        // Collect element types
+        if (item.elementType?.aat) {
+            availableFilters.elementTypes.add(item.elementType.aat);
+        }
+    });
+    
+    // Populate filter dropdowns
+    populateFilterDropdowns();
+    
+    // Restore saved filter UI state
+    restoreFilterUI();
+    
+    // Apply any existing filters
+    if (activeFilters.periodFrom || activeFilters.periodTo || 
+        activeFilters.locations.length > 0 || activeFilters.subjects.length > 0 || 
+        activeFilters.elementTypes.length > 0) {
+        performSearchAndFilter();
+    }
+    
+    console.log('Filter options built:', {
+        locations: availableFilters.locations.size,
+        subjects: availableFilters.subjects.size,
+        elementTypes: availableFilters.elementTypes.size
+    });
+}
+
+// Populate filter dropdown options
+function populateFilterDropdowns() {
+    // Populate locations
+    const locationSelect = document.getElementById('locationFilter');
+    locationSelect.innerHTML = '';
+    Array.from(availableFilters.locations).sort().forEach(location => {
+        const option = document.createElement('option');
+        option.value = location;
+        option.textContent = `Geonames: ${location}`;
+        locationSelect.appendChild(option);
+    });
+    
+    // Populate subjects (limit to top 100 most common for performance)
+    const subjectSelect = document.getElementById('subjectFilter');
+    subjectSelect.innerHTML = '';
+    Array.from(availableFilters.subjects).sort().slice(0, 100).forEach(subject => {
+        const option = document.createElement('option');
+        option.value = subject;
+        option.textContent = subject;
+        subjectSelect.appendChild(option);
+    });
+    
+    // Populate element types
+    const elementTypeSelect = document.getElementById('elementTypeFilter');
+    elementTypeSelect.innerHTML = '';
+    Array.from(availableFilters.elementTypes).sort().forEach(elementType => {
+        const option = document.createElement('option');
+        option.value = elementType;
+        option.textContent = `AAT: ${elementType}`;
+        elementTypeSelect.appendChild(option);
+    });
+}
+
+// Toggle filter panel visibility
+function toggleFilters() {
+    const panel = document.getElementById('filtersPanel');
+    const button = document.getElementById('filterToggle');
+    
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        button.textContent = 'Hide Filters';
+        button.style.background = '#dc3545';
+    } else {
+        panel.style.display = 'none';
+        button.textContent = 'Show Filters';
+        button.style.background = '#28a745';
+    }
+}
+
+// Apply active filters
+function applyFilters() {
+    // Get filter values
+    activeFilters.periodFrom = document.getElementById('periodFrom').value;
+    activeFilters.periodTo = document.getElementById('periodTo').value;
+    activeFilters.locations = Array.from(document.getElementById('locationFilter').selectedOptions)
+        .map(opt => opt.value);
+    activeFilters.subjects = Array.from(document.getElementById('subjectFilter').selectedOptions)
+        .map(opt => opt.value);
+    activeFilters.elementTypes = Array.from(document.getElementById('elementTypeFilter').selectedOptions)
+        .map(opt => opt.value);
+    
+    // Apply combined search and filters
+    performSearchAndFilter();
+    
+    // Save filters for persistence
+    saveFilters();
+    
+    console.log('Filters applied:', activeFilters);
+}
+
+// Clear all filters
+function clearAllFilters() {
+    // Reset filter UI
+    document.getElementById('periodFrom').value = '';
+    document.getElementById('periodTo').value = '';
+    document.getElementById('locationFilter').selectedIndex = -1;
+    document.getElementById('subjectFilter').selectedIndex = -1;
+    document.getElementById('elementTypeFilter').selectedIndex = -1;
+    
+    // Reset filter state
+    activeFilters = {
+        periodFrom: '',
+        periodTo: '',
+        locations: [],
+        subjects: [],
+        elementTypes: []
+    };
+    
+    // Clear search and reapply
+    document.getElementById('searchInput').value = '';
+    performSearchAndFilter();
+    
+    // Save cleared filters
+    saveFilters();
+    
+    console.log('All filters cleared');
+}
+
+// Combined search and filter functionality
+function performSearchAndFilter() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    
+    filteredItems = Object.values(allItems).filter(item => {
+        // Text search filter
+        if (query) {
+            const searchFields = [
+                item.id,
+                item.label,
+                item.period,
+                item.creationPeriod
+            ].filter(Boolean).map(f => String(f).toLowerCase());
+            
+            const matchesSearch = searchFields.some(field => field.includes(query));
+            if (!matchesSearch) return false;
+        }
+        
+        // Period range filter
+        if (activeFilters.periodFrom || activeFilters.periodTo) {
+            const itemPeriod = extractYearFromPeriod(item.period || item.creationPeriod);
+            if (itemPeriod) {
+                if (activeFilters.periodFrom && itemPeriod < parseInt(activeFilters.periodFrom)) return false;
+                if (activeFilters.periodTo && itemPeriod > parseInt(activeFilters.periodTo)) return false;
+            } else if (activeFilters.periodFrom || activeFilters.periodTo) {
+                // If period filters are set but item has no period, exclude it
+                return false;
+            }
+        }
+        
+        // Location filter
+        if (activeFilters.locations.length > 0) {
+            const itemLocation = item.location?.geonameId;
+            if (!itemLocation || !activeFilters.locations.includes(itemLocation)) return false;
+        }
+        
+        // Subject filter
+        if (activeFilters.subjects.length > 0) {
+            let hasMatchingSubject = false;
+            if (item.subject) {
+                const subjects = Array.isArray(item.subject) ? item.subject : [item.subject];
+                hasMatchingSubject = subjects.some(subj => {
+                    const subjText = typeof subj === 'object' ? subj.code || subj.label : subj;
+                    return subjText && activeFilters.subjects.includes(subjText);
+                });
+            }
+            if (!hasMatchingSubject) return false;
+        }
+        
+        // Element type filter
+        if (activeFilters.elementTypes.length > 0) {
+            const itemElementType = item.elementType?.aat;
+            if (!itemElementType || !activeFilters.elementTypes.includes(itemElementType)) return false;
+        }
+        
+        return true;
+    });
+    
+    // Reset to first page and update display
+    currentPage = 1;
+    updateStats();
+    renderItems();
+    
+    console.log(`Filtered to ${filteredItems.length} items from ${Object.keys(allItems).length} total`);
+}
+
+// Extract year from period string (e.g., "um 1379" -> 1379)
+function extractYearFromPeriod(period) {
+    if (!period) return null;
+    const match = period.match(/(\d{4})/);
+    return match ? parseInt(match[1]) : null;
+}
+
+// Update the existing search functions to use new combined approach
+function performSearch() {
+    performSearchAndFilter();
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    performSearchAndFilter();
+}
+
+// === FILTER PERSISTENCE ===
+
+// Load saved filters from localStorage
+function loadFilters() {
+    try {
+        const saved = localStorage.getItem('cvma-filters');
+        if (saved) {
+            const savedFilters = JSON.parse(saved);
+            activeFilters = { ...activeFilters, ...savedFilters };
+            console.log('Loaded saved filters:', activeFilters);
+        }
+    } catch (error) {
+        console.error('Error loading filters:', error);
+    }
+}
+
+// Save current filters to localStorage
+function saveFilters() {
+    try {
+        localStorage.setItem('cvma-filters', JSON.stringify(activeFilters));
+    } catch (error) {
+        console.error('Error saving filters:', error);
+    }
+}
+
+// Restore filter UI from saved state
+function restoreFilterUI() {
+    // Restore period range
+    document.getElementById('periodFrom').value = activeFilters.periodFrom || '';
+    document.getElementById('periodTo').value = activeFilters.periodTo || '';
+    
+    // Restore location selections
+    const locationSelect = document.getElementById('locationFilter');
+    Array.from(locationSelect.options).forEach(option => {
+        option.selected = activeFilters.locations.includes(option.value);
+    });
+    
+    // Restore subject selections
+    const subjectSelect = document.getElementById('subjectFilter');
+    Array.from(subjectSelect.options).forEach(option => {
+        option.selected = activeFilters.subjects.includes(option.value);
+    });
+    
+    // Restore element type selections
+    const elementTypeSelect = document.getElementById('elementTypeFilter');
+    Array.from(elementTypeSelect.options).forEach(option => {
+        option.selected = activeFilters.elementTypes.includes(option.value);
+    });
 }

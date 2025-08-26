@@ -363,6 +363,60 @@
                 <input type="text" id="searchInput" placeholder="Search by label, period, or ID...">
                 <button onclick="performSearch()">Search</button>
                 <button onclick="clearSearch()">Clear</button>
+                <button onclick="toggleFilters()" id="filterToggle" style="background:#28a745;">
+                    Show Filters
+                </button>
+            </div>
+            
+            <!-- Advanced Filters Panel -->
+            <div id="filtersPanel" style="display:none;background:#f8f9fa;padding:15px;margin-top:10px;border-radius:6px;border:1px solid #dee2e6;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;">
+                    
+                    <!-- Period Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Period Range</label>
+                        <div style="display:flex;gap:5px;align-items:center;">
+                            <input type="number" id="periodFrom" placeholder="From" min="1100" max="2000" 
+                                style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <span>-</span>
+                            <input type="number" id="periodTo" placeholder="To" min="1100" max="2000"
+                                style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                        </div>
+                    </div>
+                    
+                    <!-- Location Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Locations</label>
+                        <select id="locationFilter" multiple style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <!-- Subject Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Subjects</label>
+                        <select id="subjectFilter" multiple style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <!-- Element Type Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Element Types</label>
+                        <select id="elementTypeFilter" multiple style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px;display:flex;gap:10px;">
+                    <button onclick="applyFilters()" style="background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">
+                        Apply Filters
+                    </button>
+                    <button onclick="clearAllFilters()" style="background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">
+                        Clear All
+                    </button>
+                </div>
             </div>
             
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">

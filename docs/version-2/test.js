@@ -27,7 +27,12 @@ function runTests() {
         
         // UI interactions
         testModalOperations,
-        testErrorHandling
+        testErrorHandling,
+        
+        // Advanced filtering
+        testFilterSystem,
+        testCombinedSearchAndFilter,
+        testFilterPersistence
     ];
     
     // Run synchronous tests
@@ -365,6 +370,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 1000);
 });
+
+// === ADVANCED FILTERING TESTS ===
+
+function testFilterSystem() {
+    // Test filter options building
+    buildFilterOptions();
+    assert(availableFilters.locations.size > 0, 'Should build location options');
+    assert(availableFilters.subjects.size > 0, 'Should build subject options');
+    assert(availableFilters.elementTypes.size > 0, 'Should build element type options');
+    
+    // Test dropdown population
+    populateFilterDropdowns();
+    const locationSelect = document.getElementById('locationFilter');
+    const subjectSelect = document.getElementById('subjectFilter');
+    const elementTypeSelect = document.getElementById('elementTypeFilter');
+    
+    assert(locationSelect.options.length > 0, 'Should populate location options');
+    assert(subjectSelect.options.length > 0, 'Should populate subject options');
+    assert(elementTypeSelect.options.length > 0, 'Should populate element type options');
+}
+
+function testCombinedSearchAndFilter() {
+    // Store original state
+    const originalFiltered = [...filteredItems];
+    const originalFilters = { ...activeFilters };
+    
+    // Test period filtering
+    activeFilters.periodFrom = '1300';
+    activeFilters.periodTo = '1400';
+    performSearchAndFilter();
+    
+    // Should have filtered items
+    assert(filteredItems.length < originalFiltered.length, 'Period filter should reduce results');
+    assert(filteredItems.every(item => {
+        const year = extractYearFromPeriod(item.period || item.creationPeriod);
+        return !year || (year >= 1300 && year <= 1400);
+    }), 'All items should be within period range');
+    
+    // Test combined search + filter
+    document.getElementById('searchInput').value = 'window';
+    performSearchAndFilter();
+    
+    // Should further reduce results
+    const filteredCount = filteredItems.length;
+    assert(filteredCount <= originalFiltered.length, 'Combined filter should maintain or reduce results');
+    
+    // Restore state
+    activeFilters = originalFilters;
+    filteredItems = originalFiltered;
+    document.getElementById('searchInput').value = '';
+    renderItems();
+}
+
+function testFilterPersistence() {
+    // Test saving filters
+    const testFilters = {
+        periodFrom: '1200',
+        periodTo: '1500',
+        locations: ['123456'],
+        subjects: ['test-subject'],
+        elementTypes: ['test-type']
+    };
+    
+    activeFilters = testFilters;
+    saveFilters();
+    
+    // Clear and reload
+    activeFilters = {
+        periodFrom: '',
+        periodTo: '',
+        locations: [],
+        subjects: [],
+        elementTypes: []
+    };
+    
+    loadFilters();
+    
+    // Should restore saved filters
+    assert(activeFilters.periodFrom === '1200', 'Should persist period from');
+    assert(activeFilters.periodTo === '1500', 'Should persist period to');
+    assert(activeFilters.locations.includes('123456'), 'Should persist locations');
+    assert(activeFilters.subjects.includes('test-subject'), 'Should persist subjects');
+    assert(activeFilters.elementTypes.includes('test-type'), 'Should persist element types');
+    
+    // Clear for cleanup
+    clearAllFilters();
+}
 
 // Export for manual testing
 window.runTests = runTests;
