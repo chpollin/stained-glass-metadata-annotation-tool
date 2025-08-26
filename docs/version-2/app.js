@@ -6,6 +6,7 @@
 // Global state
 let allItems = {};
 let filteredItems = [];
+let annotations = {}; // itemId -> array of annotations
 let currentView = 'grid';
 let currentPage = 1;
 let itemsPerPage = 50;
@@ -13,6 +14,7 @@ let itemsPerPage = 50;
 // Initialize app on load
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
+    loadAnnotations();
     setupEventListeners();
 });
 
@@ -166,6 +168,7 @@ function renderGridView(items) {
                 <div class="item-meta">
                     ${item.period ? `<span class="meta-badge">${item.period}</span>` : ''}
                     ${item.location?.geonameId ? `<span class="meta-badge">Location: ${item.location.geonameId}</span>` : ''}
+                    ${getAnnotationCount(item.id) > 0 ? `<span class="meta-badge" style="background:#28a745;color:white;">${getAnnotationCount(item.id)} annotations</span>` : ''}
                 </div>
             </div>
         </div>
@@ -207,6 +210,7 @@ function renderListView(items) {
                         <td>${item.location?.geonameId || '-'}</td>
                         <td>
                             <button onclick="showItemDetail('${item.id}')">View</button>
+                            ${getAnnotationCount(item.id) > 0 ? `<span style="margin-left:8px;background:#28a745;color:white;padding:2px 6px;border-radius:3px;font-size:11px;">${getAnnotationCount(item.id)}</span>` : ''}
                         </td>
                     </tr>
                 `).join('')}
@@ -335,8 +339,36 @@ function showItemDetail(itemId) {
             `).join('')}
         </div>
         <div style="margin-top:20px;padding-top:20px;border-top:1px solid #dee2e6;">
-            <h3 style="margin-bottom:10px;">Annotations</h3>
-            <p style="color:#666;">Annotation features will be added in the next iteration.</p>
+            <h3 style="margin-bottom:15px;">Annotations (${getAnnotationCount(itemId)})</h3>
+            
+            <!-- Annotation Form -->
+            <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin-bottom:15px;">
+                <select id="annotationType" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid #ddd;border-radius:4px;">
+                    <option value="note">Note</option>
+                    <option value="iconography">Iconography</option>
+                    <option value="dating">Dating</option>
+                    <option value="attribution">Attribution</option>
+                    <option value="condition">Condition</option>
+                    <option value="correction">Correction</option>
+                </select>
+                <textarea id="annotationContent" placeholder="Add your annotation..." 
+                    style="width:100%;min-height:80px;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;font-family:inherit;"></textarea>
+                <div style="margin-top:10px;">
+                    <button onclick="submitAnnotation('${itemId}')" 
+                        style="background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:10px;">
+                        Add Annotation
+                    </button>
+                    <button onclick="exportAnnotations()" 
+                        style="background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">
+                        Export All
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Annotation List -->
+            <div id="annotationsList">
+                ${renderAnnotationsList(itemId)}
+            </div>
         </div>
     `;
     
@@ -351,4 +383,299 @@ function closeModal(event) {
     const modal = document.getElementById('modal');
     modal.style.display = 'none';
     document.body.style.overflow = 'auto';
+}
+
+// === ANNOTATION SYSTEM ===
+
+// Load annotations from localStorage
+function loadAnnotations() {
+    try {
+        const saved = localStorage.getItem('cvma-annotations');
+        if (saved) {
+            annotations = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading annotations:', error);
+        annotations = {};
+    }
+}
+
+// Save annotations to localStorage
+function saveAnnotations() {
+    try {
+        localStorage.setItem('cvma-annotations', JSON.stringify(annotations));
+    } catch (error) {
+        console.error('Error saving annotations:', error);
+    }
+}
+
+// Add new annotation
+function addAnnotation(itemId, type, content) {
+    if (!annotations[itemId]) {
+        annotations[itemId] = [];
+    }
+    
+    const annotation = {
+        id: generateId(),
+        type: type,
+        content: content.trim(),
+        timestamp: Date.now(),
+        author: 'User' // Can be enhanced later
+    };
+    
+    annotations[itemId].push(annotation);
+    saveAnnotations();
+    return annotation;
+}
+
+// Delete annotation
+function deleteAnnotation(itemId, annotationId) {
+    if (!annotations[itemId]) return;
+    
+    annotations[itemId] = annotations[itemId].filter(ann => ann.id !== annotationId);
+    if (annotations[itemId].length === 0) {
+        delete annotations[itemId];
+    }
+    saveAnnotations();
+}
+
+// Edit annotation
+function editAnnotation(itemId, annotationId, newContent) {
+    if (!annotations[itemId]) return;
+    
+    const annotation = annotations[itemId].find(ann => ann.id === annotationId);
+    if (annotation) {
+        annotation.content = newContent.trim();
+        annotation.timestamp = Date.now(); // Update timestamp
+        saveAnnotations();
+    }
+}
+
+// Get annotations for item
+function getAnnotations(itemId) {
+    return annotations[itemId] || [];
+}
+
+// Generate unique ID
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Get annotation count for item
+function getAnnotationCount(itemId) {
+    return annotations[itemId] ? annotations[itemId].length : 0;
+}
+
+// Export all annotations
+function exportAnnotations() {
+    const exportData = {
+        exported: new Date().toISOString(),
+        version: '1.0',
+        annotations: annotations
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], 
+        { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cvma-annotations-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Import annotations
+function importAnnotations(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.annotations) {
+                // Merge with existing annotations
+                Object.keys(data.annotations).forEach(itemId => {
+                    if (!annotations[itemId]) {
+                        annotations[itemId] = [];
+                    }
+                    annotations[itemId] = [...annotations[itemId], ...data.annotations[itemId]];
+                });
+                saveAnnotations();
+                alert('Annotations imported successfully!');
+                
+                // Refresh the main view to show annotation counts
+                renderItems();
+                
+                // Refresh current modal if open
+                const modal = document.getElementById('modal');
+                if (modal.style.display === 'block') {
+                    const currentItemId = getCurrentModalItemId();
+                    if (currentItemId) {
+                        showItemDetail(currentItemId);
+                    }
+                }
+            }
+        } catch (error) {
+            alert('Error importing annotations: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+}
+
+// Get current modal item ID (helper function)
+function getCurrentModalItemId() {
+    const modalTitle = document.getElementById('modalTitle');
+    const titleText = modalTitle.textContent;
+    // Extract item ID from title if it follows pattern "Item XXXXX"
+    const match = titleText.match(/Item (\w+)/);
+    return match ? match[1] : null;
+}
+
+// Submit new annotation
+function submitAnnotation(itemId) {
+    const typeSelect = document.getElementById('annotationType');
+    const contentTextarea = document.getElementById('annotationContent');
+    
+    const type = typeSelect.value;
+    const content = contentTextarea.value.trim();
+    
+    if (!content) {
+        alert('Please enter annotation content');
+        return;
+    }
+    
+    addAnnotation(itemId, type, content);
+    
+    // Clear form
+    contentTextarea.value = '';
+    
+    // Refresh annotations list
+    document.getElementById('annotationsList').innerHTML = renderAnnotationsList(itemId);
+    
+    // Update annotation count in header
+    const header = document.querySelector('h3');
+    if (header && header.textContent.includes('Annotations')) {
+        header.textContent = `Annotations (${getAnnotationCount(itemId)})`;
+    }
+}
+
+// Render annotations list
+function renderAnnotationsList(itemId) {
+    const itemAnnotations = getAnnotations(itemId);
+    
+    if (itemAnnotations.length === 0) {
+        return '<p style="color:#666;font-style:italic;">No annotations yet. Add one above!</p>';
+    }
+    
+    return itemAnnotations.map(annotation => `
+        <div style="background:white;border:1px solid #dee2e6;border-radius:6px;padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="background:#e9ecef;padding:2px 8px;border-radius:12px;font-size:12px;color:#495057;">
+                    ${annotation.type.toUpperCase()}
+                </span>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="editAnnotationInline('${itemId}', '${annotation.id}')" 
+                        style="background:none;border:none;color:#007bff;cursor:pointer;font-size:12px;">
+                        Edit
+                    </button>
+                    <button onclick="confirmDeleteAnnotation('${itemId}', '${annotation.id}')" 
+                        style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:12px;">
+                        Delete
+                    </button>
+                </div>
+            </div>
+            <div id="annotation-content-${annotation.id}" style="color:#333;line-height:1.4;">
+                ${escapeHtml(annotation.content)}
+            </div>
+            <div style="font-size:11px;color:#666;margin-top:8px;">
+                ${annotation.author} • ${formatDate(annotation.timestamp)}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Edit annotation inline
+function editAnnotationInline(itemId, annotationId) {
+    const contentDiv = document.getElementById(`annotation-content-${annotationId}`);
+    const annotation = getAnnotations(itemId).find(ann => ann.id === annotationId);
+    
+    if (!annotation || !contentDiv) return;
+    
+    // Replace content with textarea
+    contentDiv.innerHTML = `
+        <textarea id="edit-${annotationId}" style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+            ${annotation.content}
+        </textarea>
+        <div style="margin-top:8px;">
+            <button onclick="saveAnnotationEdit('${itemId}', '${annotationId}')" 
+                style="background:#28a745;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;margin-right:8px;">
+                Save
+            </button>
+            <button onclick="cancelAnnotationEdit('${itemId}', '${annotationId}', '${escapeHtml(annotation.content)}')" 
+                style="background:#6c757d;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;">
+                Cancel
+            </button>
+        </div>
+    `;
+}
+
+// Save annotation edit
+function saveAnnotationEdit(itemId, annotationId) {
+    const textarea = document.getElementById(`edit-${annotationId}`);
+    const newContent = textarea.value.trim();
+    
+    if (!newContent) {
+        alert('Content cannot be empty');
+        return;
+    }
+    
+    editAnnotation(itemId, annotationId, newContent);
+    
+    // Refresh the annotations list
+    document.getElementById('annotationsList').innerHTML = renderAnnotationsList(itemId);
+}
+
+// Cancel annotation edit
+function cancelAnnotationEdit(itemId, annotationId, originalContent) {
+    const contentDiv = document.getElementById(`annotation-content-${annotationId}`);
+    contentDiv.innerHTML = escapeHtml(originalContent);
+}
+
+// Confirm delete annotation
+function confirmDeleteAnnotation(itemId, annotationId) {
+    if (confirm('Are you sure you want to delete this annotation?')) {
+        deleteAnnotation(itemId, annotationId);
+        
+        // Refresh annotations list
+        document.getElementById('annotationsList').innerHTML = renderAnnotationsList(itemId);
+        
+        // Update annotation count in header
+        const header = document.querySelector('h3');
+        if (header && header.textContent.includes('Annotations')) {
+            header.textContent = `Annotations (${getAnnotationCount(itemId)})`;
+        }
+    }
+}
+
+// Utility functions
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+}
+
+// Handle file import from main interface
+function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (file) {
+        importAnnotations(file);
+        // Clear the input so the same file can be imported again
+        event.target.value = '';
+    }
 }

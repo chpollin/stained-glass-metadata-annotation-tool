@@ -365,9 +365,21 @@
                 <button onclick="clearSearch()">Clear</button>
             </div>
             
-            <div class="view-toggle">
-                <button class="view-btn active" onclick="setView('grid')">Grid View</button>
-                <button class="view-btn" onclick="setView('list')">List View</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div class="view-toggle">
+                    <button class="view-btn active" onclick="setView('grid')">Grid View</button>
+                    <button class="view-btn" onclick="setView('list')">List View</button>
+                </div>
+                
+                <div style="display:flex;gap:10px;">
+                    <input type="file" id="importFile" accept=".json" style="display:none;" onchange="handleFileImport(event)">
+                    <button onclick="document.getElementById('importFile').click()" style="background:#17a2b8;">
+                        Import Annotations
+                    </button>
+                    <button onclick="exportAnnotations()" style="background:#6c757d;">
+                        Export All
+                    </button>
+                </div>
             </div>
         </div>
         
