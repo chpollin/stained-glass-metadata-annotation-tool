@@ -1,4 +1,4 @@
-# CVMA Stained Glass Metadata Annotation Tool
+# CVMA Stained Glass Metadata Annotation Tool [THIS IS AN EXPERIMENT FOR A PRESENTATION]
 
 A comprehensive web-based platform for browsing, filtering, and annotating the **CVMA (Corpus Vitrearum Medii Aevi)** stained glass collection. This tool provides scholars and researchers with powerful capabilities to explore 8,730 medieval stained glass items and add scholarly annotations.
 
