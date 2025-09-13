@@ -132,27 +132,14 @@ runTests()
 - **Memory Usage**: Optimized for large dataset handling
 - **Caching**: Smart localStorage caching for annotations and filters
 
-## 🤝 Contributing
-
-This tool was developed to support scholarly research of medieval stained glass. Contributions welcome:
-
-1. **Issues**: Report bugs or request features via GitHub Issues
-2. **Pull Requests**: Submit improvements or new features
-3. **Data**: Contribute additional metadata or corrections
-4. **Testing**: Help expand test coverage
-
 ## 📖 Research Context
 
-The **Corpus Vitrearum Medii Aevi** is an international research project documenting medieval stained glass windows. This tool provides digital humanities researchers with:
+The **Corpus Vitrearum Medii Aevi** is an international research project documenting medieval stained glass windows. This tool provides researchers with:
 
 - **Comprehensive Access**: Browse the complete CVMA dataset
 - **Advanced Analysis**: Filter by multiple scholarly criteria
 - **Annotation Capability**: Add research notes and observations
 - **Data Portability**: Export annotations for publication or sharing
-
-## 📄 License
-
-This project is open source. The CVMA data is used under appropriate academic permissions. Images remain property of their respective institutions.
 
 ## 🔗 Related Resources
 
@@ -161,6 +148,3 @@ This project is open source. The CVMA data is used under appropriate academic pe
 - [Geonames](http://www.geonames.org/) (Geographic data)
 - [Getty AAT](http://www.getty.edu/research/tools/vocabularies/aat/) (Art & Architecture Thesaurus)
 
----
-
-**Built with scholarly precision for the digital humanities community** 🎨📚
