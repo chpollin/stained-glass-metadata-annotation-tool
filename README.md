@@ -4,7 +4,7 @@ A comprehensive web-based platform for browsing, filtering, and annotating the *
 
 ## 🎯 Live Demo
 
-**👉 [Access the tool here](https://[your-username].github.io/stained-glass-metadata-annotation-tool/docs/version-2/)**
+**👉 [Access the tool here](https://chpollin.github.io/stained-glass-metadata-annotation-tool/docs/version-2/)**
 
 ## ✨ Features
 
