@@ -483,54 +483,148 @@ function getAnnotationCount(itemId) {
     return annotations[itemId] ? annotations[itemId].length : 0;
 }
 
-// Export all annotations
+// Export all annotations (legacy format)
 function exportAnnotations() {
+    // Default to simple format for backward compatibility
+    exportAnnotationsSimple();
+}
+
+// Export in simple/legacy format
+function exportAnnotationsSimple() {
     const exportData = {
         exported: new Date().toISOString(),
         version: '1.0',
         annotations: annotations
     };
     
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], 
+    downloadJSON(exportData, `cvma-annotations-${new Date().toISOString().split('T')[0]}.json`);
+}
+
+// Export in CIDOC CRM format
+function exportAnnotationsCIDOC() {
+    const mapper = new CIDOCMapper();
+    const validator = new CIDOCValidator();
+    
+    // Get only annotated items or all items based on user preference
+    const itemsToExport = {};
+    Object.keys(filteredItems).forEach(idx => {
+        const item = filteredItems[idx];
+        if (item && item.id) {
+            itemsToExport[item.id] = item;
+        }
+    });
+    
+    const exportData = mapper.createExport(itemsToExport, annotations);
+    
+    // Validate the export
+    const validationResult = validator.validate(exportData);
+    if (!validationResult.valid) {
+        console.warn('CIDOC CRM validation warnings:', validationResult);
+        if (validationResult.errors.length > 0) {
+            const proceed = confirm(
+                `The CIDOC export has validation errors:\n\n${validationResult.errors.slice(0, 3).join('\n')}\n\nDo you want to export anyway?`
+            );
+            if (!proceed) return;
+        }
+    }
+    
+    downloadJSON(exportData, `cvma-cidoc-${new Date().toISOString().split('T')[0]}.json`);
+}
+
+// Export in combined format (both simple and CIDOC)
+function exportAnnotationsCombined() {
+    const mapper = new CIDOCMapper();
+    
+    // Get items to export
+    const itemsToExport = {};
+    Object.keys(filteredItems).forEach(idx => {
+        const item = filteredItems[idx];
+        if (item && item.id) {
+            itemsToExport[item.id] = item;
+        }
+    });
+    
+    const exportData = {
+        simple: {
+            exported: new Date().toISOString(),
+            version: '1.0',
+            annotations: annotations
+        },
+        cidoc: mapper.createExport(itemsToExport, annotations)
+    };
+    
+    downloadJSON(exportData, `cvma-combined-${new Date().toISOString().split('T')[0]}.json`);
+}
+
+// Helper function to download JSON
+function downloadJSON(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], 
         { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cvma-annotations-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
-// Import annotations
+// Export with format selection
+function exportWithFormat() {
+    const formatSelect = document.querySelector('input[name="exportFormat"]:checked');
+    const format = formatSelect ? formatSelect.value : 'simple';
+    
+    switch(format) {
+        case 'cidoc':
+            exportAnnotationsCIDOC();
+            break;
+        case 'combined':
+            exportAnnotationsCombined();
+            break;
+        case 'simple':
+        default:
+            exportAnnotationsSimple();
+            break;
+    }
+}
+
+// Import annotations (handles both simple and CIDOC formats)
 function importAnnotations(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            if (data.annotations) {
-                // Merge with existing annotations
-                Object.keys(data.annotations).forEach(itemId => {
-                    if (!annotations[itemId]) {
-                        annotations[itemId] = [];
-                    }
-                    annotations[itemId] = [...annotations[itemId], ...data.annotations[itemId]];
-                });
-                saveAnnotations();
-                alert('Annotations imported successfully!');
-                
-                // Refresh the main view to show annotation counts
-                renderItems();
-                
-                // Refresh current modal if open
-                const modal = document.getElementById('modal');
-                if (modal.style.display === 'block') {
-                    const currentItemId = getCurrentModalItemId();
-                    if (currentItemId) {
-                        showItemDetail(currentItemId);
-                    }
+            
+            // Check if it's a combined format
+            if (data.simple && data.simple.annotations) {
+                importSimpleAnnotations(data.simple.annotations);
+            }
+            // Check if it's simple format
+            else if (data.annotations) {
+                importSimpleAnnotations(data.annotations);
+            }
+            // Check if it's CIDOC format
+            else if (data['@context'] && data['@graph']) {
+                importCIDOCAnnotations(data);
+            }
+            else {
+                throw new Error('Unrecognized annotation format');
+            }
+            
+            saveAnnotations();
+            alert('Annotations imported successfully!');
+            
+            // Refresh the main view to show annotation counts
+            renderItems();
+            
+            // Refresh current modal if open
+            const modal = document.getElementById('modal');
+            if (modal.style.display === 'block') {
+                const currentItemId = getCurrentModalItemId();
+                if (currentItemId) {
+                    showItemDetail(currentItemId);
                 }
             }
         } catch (error) {
@@ -538,6 +632,51 @@ function importAnnotations(file) {
         }
     };
     reader.readAsText(file);
+}
+
+// Import simple format annotations
+function importSimpleAnnotations(importedAnnotations) {
+    Object.keys(importedAnnotations).forEach(itemId => {
+        if (!annotations[itemId]) {
+            annotations[itemId] = [];
+        }
+        annotations[itemId] = [...annotations[itemId], ...importedAnnotations[itemId]];
+    });
+}
+
+// Import CIDOC format annotations
+function importCIDOCAnnotations(cidocData) {
+    if (!cidocData['@graph']) return;
+    
+    cidocData['@graph'].forEach(item => {
+        if (item['@type'] === 'crm:E22_Human-Made_Object' && item.has_annotation) {
+            // Extract item ID from URI
+            const itemId = item.identified_by?.content || item['@id'].split('/').pop();
+            
+            if (!annotations[itemId]) {
+                annotations[itemId] = [];
+            }
+            
+            // Convert CIDOC annotations back to simple format
+            item.has_annotation.forEach(cidocAnn => {
+                const simpleAnn = {
+                    id: cidocAnn['@id']?.replace('_:annotation_', '') || generateId(),
+                    type: cidocAnn.has_type || 'annotation',
+                    content: cidocAnn.assigned?.content || '',
+                    timestamp: cidocAnn.has_time_span?.begin_of_the_begin ? 
+                        new Date(cidocAnn.has_time_span.begin_of_the_begin).getTime() : 
+                        Date.now(),
+                    author: cidocAnn.carried_out_by?.label || 'User'
+                };
+                
+                // Check if annotation already exists
+                const exists = annotations[itemId].some(a => a.id === simpleAnn.id);
+                if (!exists && simpleAnn.content) {
+                    annotations[itemId].push(simpleAnn);
+                }
+            });
+        }
+    });
 }
 
 // Get current modal item ID (helper function)

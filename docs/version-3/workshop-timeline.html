@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVMA Workshop Timeline Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            overflow-x: auto;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: white;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 16px;
+            color: #34495e;
+            margin: 20px 0 10px;
+        }
+
+        .info-panel {
+            background: #e8f4f8;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 8px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .timeline-container {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+            position: relative;
+        }
+
+        .timeline-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 100;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .year-axis {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 60px;
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .timeline-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 600px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .swim-lanes {
+            position: relative;
+            padding: 20px 60px;
+            min-width: 1400px;
+        }
+
+        .location-lane {
+            position: relative;
+            min-height: 60px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ecf0f1;
+            padding: 5px 0;
+        }
+
+        .location-label {
+            position: absolute;
+            left: -55px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #666;
+            width: 50px;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .workshop-box {
+            position: absolute;
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: all 0.2s;
+            opacity: 0.9;
+            border: 2px solid transparent;
+        }
+
+        .workshop-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            opacity: 1;
+            z-index: 10;
+            overflow: visible;
+            white-space: normal;
+        }
+
+        .workshop-box.selected {
+            border-color: #e74c3c;
+            background: #2c3e50;
+        }
+
+        /* Century color coding */
+        .century-12 { background: #9b59b6; }
+        .century-13 { background: #3498db; }
+        .century-14 { background: #2ecc71; }
+        .century-15 { background: #f39c12; }
+        .century-16 { background: #e74c3c; }
+
+        .connection-line {
+            position: absolute;
+            stroke: #95a5a6;
+            stroke-width: 1;
+            fill: none;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .connection-line.highlighted {
+            stroke: #e74c3c;
+            stroke-width: 2;
+            opacity: 0.8;
+            z-index: 5;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .workshop-details {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .workshop-details h3 {
+            font-size: 14px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .workshop-details p {
+            font-size: 12px;
+            color: #666;
+            margin: 4px 0;
+        }
+
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 60px;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .decade-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            border-left: 1px dashed #dee2e6;
+            opacity: 0.5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Workshop Timeline Analysis</h1>
+
+            <div class="info-panel">
+                This timeline shows medieval stained glass workshops arranged by location (rows)
+                and time period (horizontal position). Box width represents the workshop's active period.
+            </div>
+
+            <div class="controls">
+                <button onclick="loadAndVisualize()">Load Timeline</button>
+                <button onclick="resetView()">Reset View</button>
+                <button onclick="toggleConnections()">Toggle Connections</button>
+                <button onclick="exportData()">Export Data</button>
+            </div>
+
+            <div class="filter-group">
+                <label>Filter by Century:</label>
+                <select id="centuryFilter" onchange="filterByCentury()">
+                    <option value="">All Centuries</option>
+                    <option value="12">12th Century</option>
+                    <option value="13">13th Century</option>
+                    <option value="14">14th Century</option>
+                    <option value="15">15th Century</option>
+                    <option value="16">16th Century</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Minimum Works:</label>
+                <input type="range" id="minWorks" min="1" max="20" value="3"
+                       oninput="document.getElementById('minWorksDisplay').textContent = this.value">
+                <span id="minWorksDisplay">3</span>
+            </div>
+
+            <div class="filter-group">
+                <label>Connection Type:</label>
+                <select id="connectionType" onchange="updateConnections()">
+                    <option value="all">All Connections</option>
+                    <option value="contemporary">Contemporary Only</option>
+                    <option value="location">Same Location Only</option>
+                    <option value="subjects">Shared Subjects Only</option>
+                </select>
+            </div>
+
+            <h2>Statistics</h2>
+            <div id="stats">
+                <div class="stat-item">
+                    <div class="stat-label">Workshops</div>
+                    <div class="stat-value" id="workshopCount">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Locations</div>
+                    <div class="stat-value" id="locationCount">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Time Span</div>
+                    <div class="stat-value" id="timeSpan">-</div>
+                </div>
+            </div>
+
+            <h2>Color Legend</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color century-12"></div>
+                    <span>12th Century</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color century-13"></div>
+                    <span>13th Century</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color century-14"></div>
+                    <span>14th Century</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color century-15"></div>
+                    <span>15th Century</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color century-16"></div>
+                    <span>16th Century</span>
+                </div>
+            </div>
+
+            <div id="selectedWorkshop"></div>
+        </div>
+
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <div class="year-axis" id="yearAxis"></div>
+            </div>
+
+            <div class="timeline-content">
+                <div class="grid-lines" id="gridLines"></div>
+                <div class="swim-lanes" id="swimLanes">
+                    <div class="loading">Click "Load Timeline" to begin analysis...</div>
+                </div>
+                <svg id="connectionsSvg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script src="workshop-analyzer.js"></script>
+    <script src="workshop-timeline.js"></script>
+</body>
+</html>

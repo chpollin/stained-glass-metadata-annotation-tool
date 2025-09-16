@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIDOC CRM Export Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>CIDOC CRM Export Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test Data Setup</h2>
+        <button onclick="runTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        <div id="setup-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Mapper Tests</h2>
+        <div id="mapper-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Validator Tests</h2>
+        <div id="validator-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Export Sample</h2>
+        <button onclick="showSampleExport()">Generate Sample Export</button>
+        <pre id="export-sample"></pre>
+    </div>
+
+    <script src="cidoc-mapper.js"></script>
+    <script src="cidoc-validator.js"></script>
+    <script>
+        // Test data
+        const testItem = {
+            id: "F14120",
+            uri: "https://corpusvitrearum.de/id/F14120",
+            label: "Grablegung Christi (Detail)",
+            image: "https://corpusvitrearum.de/typo3temp/cvma/_processed_/pics/original/14120.jpg",
+            period: "um 1379",
+            creationPeriod: "um 1379",
+            periodNormalized: 1300,
+            location: {
+                uri: "http://sws.geonames.org/8349587",
+                geonameId: "8349587"
+            },
+            elementType: {
+                uri: "http://vocab.getty.edu/aat/300263722",
+                aat: "300263722"
+            },
+            subject: [
+                {
+                    uri: "https://iconclass.org/73D761",
+                    code: "73D761"
+                }
+            ],
+            elementOf: "https://nfdi4culture.de/id/E5308",
+            license: ["https://creativecommons.org/licenses/by/4.0/"],
+            publisher: "https://nfdi4culture.de/id/E1834"
+        };
+        
+        const testAnnotations = {
+            "F14120": [
+                {
+                    id: "test_ann_1",
+                    type: "technical",
+                    content: "Silver stain technique visible in hair details",
+                    timestamp: Date.now(),
+                    author: "Test User"
+                },
+                {
+                    id: "test_ann_2",
+                    type: "iconographic",
+                    content: "Similar composition to Canterbury examples",
+                    timestamp: Date.now() - 86400000,
+                    author: "Test User"
+                }
+            ]
+        };
+        
+        function runTests() {
+            clearResults();
+            testMapper();
+            testValidator();
+            document.getElementById('setup-results').innerHTML = '<div class="success">✓ Test data loaded successfully</div>';
+        }
+        
+        function clearResults() {
+            document.getElementById('setup-results').innerHTML = '';
+            document.getElementById('mapper-results').innerHTML = '';
+            document.getElementById('validator-results').innerHTML = '';
+            document.getElementById('export-sample').textContent = '';
+        }
+        
+        function testMapper() {
+            const results = [];
+            const mapper = new CIDOCMapper();
+            
+            try {
+                // Test 1: Map single item
+                const mapped = mapper.mapItem(testItem, testAnnotations["F14120"]);
+                results.push({
+                    test: "Map single item",
+                    passed: mapped['@type'] === 'crm:E22_Human-Made_Object',
+                    details: `Created ${mapped['@type']}`
+                });
+                
+                // Test 2: Check identifier mapping
+                results.push({
+                    test: "Identifier mapping",
+                    passed: mapped.identified_by && mapped.identified_by.content === "F14120",
+                    details: `ID: ${mapped.identified_by?.content}`
+                });
+                
+                // Test 3: Time span mapping
+                const timeSpan = mapped.produced_by?.has_time_span;
+                results.push({
+                    test: "Time span parsing",
+                    passed: timeSpan && timeSpan.begin_of_the_begin && timeSpan.end_of_the_end,
+                    details: `Period: ${timeSpan?.begin_of_the_begin} to ${timeSpan?.end_of_the_end}`
+                });
+                
+                // Test 4: Annotation mapping
+                results.push({
+                    test: "Annotation mapping",
+                    passed: mapped.has_annotation && mapped.has_annotation.length === 2,
+                    details: `Mapped ${mapped.has_annotation?.length || 0} annotations`
+                });
+                
+                // Test 5: Full export
+                const exportData = mapper.createExport({ "F14120": testItem }, testAnnotations);
+                results.push({
+                    test: "Full export creation",
+                    passed: exportData['@context'] && exportData['@graph'],
+                    details: `Export has ${exportData['@graph']?.length || 0} entities`
+                });
+                
+            } catch (error) {
+                results.push({
+                    test: "Mapper execution",
+                    passed: false,
+                    details: error.message
+                });
+            }
+            
+            displayResults('mapper-results', results);
+        }
+        
+        function testValidator() {
+            const results = [];
+            const validator = new CIDOCValidator();
+            const mapper = new CIDOCMapper();
+            
+            try {
+                // Create a test export
+                const exportData = mapper.createExport({ "F14120": testItem }, testAnnotations);
+                
+                // Test 1: Validate complete export
+                const validation = validator.validate(exportData);
+                results.push({
+                    test: "Validate complete export",
+                    passed: validation.valid || validation.errors.length === 0,
+                    details: `${validation.errors.length} errors, ${validation.warnings.length} warnings`
+                });
+                
+                // Test 2: Context validation
+                results.push({
+                    test: "Context validation",
+                    passed: validation.summary.hasContext,
+                    details: "Has @context"
+                });
+                
+                // Test 3: Graph structure
+                results.push({
+                    test: "Graph structure",
+                    passed: validation.summary.hasGraph,
+                    details: `${validation.summary.totalEntities} entities`
+                });
+                
+                // Test 4: Invalid data detection
+                const invalidData = { "@type": "crm:E22_Human-Made_Object" };
+                const invalidValidation = validator.validate(invalidData);
+                results.push({
+                    test: "Invalid data detection",
+                    passed: !invalidValidation.valid,
+                    details: "Correctly identified missing @context"
+                });
+                
+                // Test 5: Date validation
+                const dateValid = validator.isValidDate("2024-01-15");
+                const dateInvalid = validator.isValidDate("invalid-date");
+                results.push({
+                    test: "Date format validation",
+                    passed: dateValid && !dateInvalid,
+                    details: "Date validation working"
+                });
+                
+            } catch (error) {
+                results.push({
+                    test: "Validator execution",
+                    passed: false,
+                    details: error.message
+                });
+            }
+            
+            displayResults('validator-results', results);
+        }
+        
+        function displayResults(elementId, results) {
+            const html = results.map(r => {
+                const status = r.passed ? 
+                    '<span class="success">✓</span>' : 
+                    '<span class="error">✗</span>';
+                return `<div>${status} ${r.test}: ${r.details}</div>`;
+            }).join('');
+            
+            const summary = `<div><strong>Summary: ${results.filter(r => r.passed).length}/${results.length} tests passed</strong></div><hr>`;
+            
+            document.getElementById(elementId).innerHTML = summary + html;
+        }
+        
+        function showSampleExport() {
+            const mapper = new CIDOCMapper();
+            const exportData = mapper.createExport({ "F14120": testItem }, testAnnotations);
+            document.getElementById('export-sample').textContent = JSON.stringify(exportData, null, 2);
+        }
+        
+        // Auto-run tests on load
+        window.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>

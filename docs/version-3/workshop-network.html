@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVMA Workshop Network Visualization</title>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 18px;
+            color: #34495e;
+            margin: 20px 0 10px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        #network {
+            flex: 1;
+            background: white;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .workshop-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .workshop-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .workshop-item:hover {
+            background: #e9ecef;
+        }
+
+        .workshop-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .workshop-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .info-panel {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .threshold-display {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: bold;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>Workshop Network Analysis</h1>
+
+        <div class="info-panel">
+            This visualization shows potential workshops and their connections based on location,
+            time period, and shared characteristics. Workshops are inferred from groups of works
+            created in the same location during similar time periods.
+        </div>
+
+        <div class="controls">
+            <button onclick="loadAndAnalyze()">Analyze Workshops</button>
+            <button onclick="resetView()">Reset View</button>
+            <button onclick="stopPhysics()">Stop Physics</button>
+            <button onclick="exportData()">Export Data</button>
+        </div>
+
+        <div class="filter-group">
+            <label>Minimum Works per Workshop: <span class="threshold-display" id="minWorksDisplay">3</span></label>
+            <input type="range" id="minWorks" min="2" max="10" value="3" onchange="updateThreshold()">
+        </div>
+
+        <div class="filter-group">
+            <label>Connection Strength Threshold: <span class="threshold-display" id="strengthDisplay">40</span></label>
+            <input type="range" id="strengthThreshold" min="0" max="100" value="40" onchange="filterConnections()">
+        </div>
+
+        <div class="filter-group">
+            <label>Filter by Century:</label>
+            <select id="centuryFilter" onchange="filterByCentury()">
+                <option value="">All Centuries</option>
+                <option value="1100">12th Century</option>
+                <option value="1200">13th Century</option>
+                <option value="1300">14th Century</option>
+                <option value="1400">15th Century</option>
+                <option value="1500">16th Century</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Connection Type:</label>
+            <select id="connectionTypeFilter" onchange="filterByConnectionType()">
+                <option value="">All Types</option>
+                <option value="successor">Successor Only</option>
+                <option value="collaboration">Collaboration Only</option>
+                <option value="influence">Influence Only</option>
+                <option value="proximity">Proximity Only</option>
+            </select>
+        </div>
+
+        <h2>Statistics</h2>
+        <div id="stats">
+            <div class="stat-item">
+                <div class="stat-label">Workshops Identified</div>
+                <div class="stat-value" id="workshopCount">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Connections Found</div>
+                <div class="stat-value" id="connectionCount">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Works Analyzed</div>
+                <div class="stat-value" id="worksCount">-</div>
+            </div>
+        </div>
+
+        <h2>Connection Types</h2>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background:#2ecc71;"></div>
+                <span>Successor</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background:#3498db;"></div>
+                <span>Collaboration</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background:#9b59b6;"></div>
+                <span>Influence</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background:#95a5a6;"></div>
+                <span>Proximity</span>
+            </div>
+        </div>
+
+        <h2>Top Workshops</h2>
+        <div id="topWorkshops" class="workshop-list"></div>
+    </div>
+
+    <div id="network"></div>
+
+    <div id="loading" class="loading" style="display:none;">
+        Analyzing workshop connections...
+    </div>
+
+    <script src="workshop-analyzer.js"></script>
+    <script>
+        let network = null;
+        let analyzer = null;
+        let currentData = null;
+        let allItems = {};
+
+        // Initialize network visualization
+        function initNetwork() {
+            const container = document.getElementById('network');
+            const data = {
+                nodes: new vis.DataSet([]),
+                edges: new vis.DataSet([])
+            };
+
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    scaling: {
+                        min: 10,
+                        max: 30,
+                        label: {
+                            min: 8,
+                            max: 20,
+                            drawThreshold: 5
+                        }
+                    },
+                    font: {
+                        size: 12,
+                        color: '#333'
+                    },
+                    borderWidth: 2,
+                    color: {
+                        border: '#2c3e50',
+                        background: '#ecf0f1',
+                        highlight: {
+                            border: '#3498db',
+                            background: '#e8f4f8'
+                        }
+                    }
+                },
+                edges: {
+                    width: 1,
+                    smooth: {
+                        type: 'continuous',
+                        roundness: 0.5
+                    },
+                    arrows: {
+                        to: false
+                    },
+                    selectionWidth: 2,
+                    hidden: false,
+                    physics: true
+                },
+                physics: {
+                    enabled: true,
+                    forceAtlas2Based: {
+                        gravitationalConstant: -50,
+                        centralGravity: 0.01,
+                        springLength: 100,
+                        springConstant: 0.08,
+                        avoidOverlap: 0.5
+                    },
+                    maxVelocity: 50,
+                    solver: 'forceAtlas2Based',
+                    stabilization: {
+                        enabled: true,
+                        iterations: 200,
+                        updateInterval: 10
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 200,
+                    hideEdgesOnDrag: true,
+                    hideEdgesOnZoom: true
+                },
+                layout: {
+                    improvedLayout: true,
+                    clusterThreshold: 150
+                }
+            };
+
+            network = new vis.Network(container, data, options);
+
+            // Handle click events
+            network.on("click", function(params) {
+                if (params.nodes.length > 0) {
+                    showWorkshopDetails(params.nodes[0]);
+                }
+            });
+        }
+
+        // Load data and analyze
+        async function loadAndAnalyze() {
+            document.getElementById('loading').style.display = 'block';
+            console.log('📂 Loading CVMA data...');
+
+            try {
+                // Load the processed data
+                const response = await fetch('data/cvma-processed.json');
+                const data = await response.json();
+                allItems = data.items;
+                console.log(`✅ Loaded ${Object.keys(allItems).length} items`);
+
+                // Create analyzer and run analysis
+                analyzer = new WorkshopAnalyzer(allItems);
+                const minWorks = parseInt(document.getElementById('minWorks').value);
+
+                // Modify the analyzer to use custom threshold
+                analyzer.analyzeWorkshops();
+
+                // Filter workshops by minimum works
+                const filteredWorkshops = new Map();
+                analyzer.workshops.forEach((workshop, key) => {
+                    if (workshop.workCount >= minWorks) {
+                        filteredWorkshops.set(key, workshop);
+                    }
+                });
+                analyzer.workshops = filteredWorkshops;
+                console.log(`🎯 Filtered to ${filteredWorkshops.size} workshops with ${minWorks}+ works`);
+
+                analyzer.findConnections();
+
+                // Get visualization data
+                currentData = analyzer.exportForVisualization();
+                console.log(`🎨 Generated visualization: ${currentData.nodes.length} nodes, ${currentData.edges.length} edges`);
+
+                // Update network
+                updateNetwork(currentData);
+
+                // Update statistics
+                updateStatistics();
+
+                // Show top workshops
+                showTopWorkshops();
+
+                console.log('✨ Analysis complete!');
+
+            } catch (error) {
+                console.error('❌ Error during analysis:', error);
+                console.error('Stack trace:', error.stack);
+                alert('Error during analysis: ' + error.message + '\nCheck console for details.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Update network visualization
+        function updateNetwork(data) {
+            if (!network) {
+                initNetwork();
+            }
+
+            const threshold = parseInt(document.getElementById('strengthThreshold').value);
+
+            // Filter edges by strength threshold
+            const filteredEdges = data.edges.filter(edge => edge.value >= threshold);
+
+            // Only show nodes that have connections
+            const connectedNodes = new Set();
+            filteredEdges.forEach(edge => {
+                connectedNodes.add(edge.from);
+                connectedNodes.add(edge.to);
+            });
+
+            const filteredNodes = data.nodes.filter(node =>
+                connectedNodes.has(node.id) || node.value > 10 // Show large workshops even without connections
+            );
+
+            network.setData({
+                nodes: new vis.DataSet(filteredNodes),
+                edges: new vis.DataSet(filteredEdges)
+            });
+        }
+
+        // Update statistics display
+        function updateStatistics() {
+            if (!analyzer) return;
+
+            const stats = analyzer.getStatistics();
+            document.getElementById('workshopCount').textContent = stats.totalWorkshops;
+            document.getElementById('connectionCount').textContent = stats.totalConnections;
+
+            let totalWorks = 0;
+            analyzer.workshops.forEach(w => totalWorks += w.workCount);
+            document.getElementById('worksCount').textContent = totalWorks;
+        }
+
+        // Show top workshops in sidebar
+        function showTopWorkshops() {
+            if (!analyzer) return;
+
+            const container = document.getElementById('topWorkshops');
+            const stats = analyzer.getStatistics();
+
+            container.innerHTML = stats.largestWorkshops.map(workshop => `
+                <div class="workshop-item" onclick="highlightWorkshop('${workshop.name}')">
+                    <div class="workshop-name">${workshop.name}</div>
+                    <div class="workshop-details">
+                        ${workshop.workCount} works | ${workshop.period}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Show workshop details
+        function showWorkshopDetails(workshopId) {
+            if (!analyzer) return;
+
+            const workshop = analyzer.workshops.get(workshopId);
+            if (!workshop) return;
+
+            console.log(`📍 Selected: ${workshop.name}`);
+            console.log(`   Works: ${workshop.workCount} | Subjects: ${workshop.subjects.length} | Connections: ${workshop.connections.length}`);
+            console.log(`   Period: ${workshop.dateRange.min}-${workshop.dateRange.max}`);
+        }
+
+        // Highlight a workshop in the network
+        function highlightWorkshop(workshopName) {
+            if (!network || !currentData) return;
+
+            const node = currentData.nodes.find(n => n.label === workshopName);
+            if (node) {
+                network.selectNodes([node.id]);
+                network.focus(node.id, {
+                    scale: 1.5,
+                    animation: true
+                });
+            }
+        }
+
+        // Filter connections by strength
+        function filterConnections() {
+            const threshold = document.getElementById('strengthThreshold').value;
+            document.getElementById('strengthDisplay').textContent = threshold;
+
+            if (currentData) {
+                const before = currentData.edges.length;
+                const after = currentData.edges.filter(e => e.value >= threshold).length;
+                console.log(`🔧 Filter: ${after}/${before} connections shown (strength ≥ ${threshold})`);
+                updateNetwork(currentData);
+            }
+        }
+
+        // Update threshold display
+        function updateThreshold() {
+            const value = document.getElementById('minWorks').value;
+            document.getElementById('minWorksDisplay').textContent = value;
+        }
+
+        // Filter by century
+        function filterByCentury() {
+            const century = document.getElementById('centuryFilter').value;
+
+            if (!currentData || !analyzer) return;
+
+            if (century === '') {
+                updateNetwork(currentData);
+            } else {
+                const centuryNum = parseInt(century);
+                const filteredNodes = currentData.nodes.filter(node => {
+                    const workshop = analyzer.workshops.get(node.id);
+                    const workshopCentury = Math.floor(workshop.dateRange.min / 100) * 100;
+                    return workshopCentury === centuryNum;
+                });
+
+                const nodeIds = new Set(filteredNodes.map(n => n.id));
+                const filteredEdges = currentData.edges.filter(edge =>
+                    nodeIds.has(edge.from) && nodeIds.has(edge.to)
+                );
+
+                network.setData({
+                    nodes: new vis.DataSet(filteredNodes),
+                    edges: new vis.DataSet(filteredEdges)
+                });
+            }
+        }
+
+        // Reset view
+        function resetView() {
+            if (network) {
+                network.fit();
+            }
+        }
+
+        // Export data
+        function exportData() {
+            if (!analyzer) {
+                alert('Please analyze workshops first');
+                return;
+            }
+
+            const stats = analyzer.getStatistics();
+            const exportData = {
+                generated: new Date().toISOString(),
+                statistics: stats,
+                workshops: Array.from(analyzer.workshops.values()),
+                connections: analyzer.connections
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `workshop-analysis-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Filter by connection type
+        function filterByConnectionType() {
+            const type = document.getElementById('connectionTypeFilter').value;
+
+            if (!currentData || !analyzer) return;
+
+            const threshold = parseInt(document.getElementById('strengthThreshold').value);
+
+            if (type === '') {
+                // Show all connections above threshold
+                const filteredEdges = currentData.edges.filter(edge => edge.value >= threshold);
+                updateNetworkWithEdges(filteredEdges);
+            } else {
+                // Filter by specific type
+                const filteredEdges = currentData.edges.filter(edge => {
+                    const connection = analyzer.connections.find(c =>
+                        c.source === edge.from && c.target === edge.to
+                    );
+                    return connection && connection.type === type && edge.value >= threshold;
+                });
+                updateNetworkWithEdges(filteredEdges);
+                console.log(`🎯 Showing ${filteredEdges.length} ${type} connections`);
+            }
+        }
+
+        // Update network with filtered edges
+        function updateNetworkWithEdges(filteredEdges) {
+            // Only show nodes that have connections
+            const connectedNodes = new Set();
+            filteredEdges.forEach(edge => {
+                connectedNodes.add(edge.from);
+                connectedNodes.add(edge.to);
+            });
+
+            const filteredNodes = currentData.nodes.filter(node =>
+                connectedNodes.has(node.id) || node.value > 10
+            );
+
+            network.setData({
+                nodes: new vis.DataSet(filteredNodes),
+                edges: new vis.DataSet(filteredEdges)
+            });
+        }
+
+        // Stop physics simulation
+        function stopPhysics() {
+            if (network) {
+                network.stopSimulation();
+                console.log('⏸️ Physics stopped - network is now static');
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initNetwork();
+
+            // Add help text
+            console.log('💡 Tips: Drag nodes to reorganize. Use filters to reduce complexity. Physics is OFF by default.');
+        });
+    </script>
+</body>
+</html>

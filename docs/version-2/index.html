@@ -428,13 +428,26 @@
                     <button class="view-btn" onclick="setView('list')">List View</button>
                 </div>
                 
-                <div style="display:flex;gap:10px;">
+                <div style="display:flex;gap:10px;align-items:center;">
                     <input type="file" id="importFile" accept=".json" style="display:none;" onchange="handleFileImport(event)">
                     <button onclick="document.getElementById('importFile').click()" style="background:#17a2b8;">
                         Import Annotations
                     </button>
-                    <button onclick="exportAnnotations()" style="background:#6c757d;">
-                        Export All
+                    
+                    <div style="display:flex;align-items:center;gap:5px;padding:5px;background:white;border-radius:4px;">
+                        <label style="font-size:12px;margin:0;">
+                            <input type="radio" name="exportFormat" value="simple" checked> Simple
+                        </label>
+                        <label style="font-size:12px;margin:0;">
+                            <input type="radio" name="exportFormat" value="cidoc"> CIDOC
+                        </label>
+                        <label style="font-size:12px;margin:0;">
+                            <input type="radio" name="exportFormat" value="combined"> Both
+                        </label>
+                    </div>
+                    
+                    <button onclick="exportWithFormat()" style="background:#6c757d;">
+                        Export
                     </button>
                 </div>
             </div>
@@ -459,6 +472,8 @@
         </div>
     </div>
     
+    <script src="cidoc-mapper.js"></script>
+    <script src="cidoc-validator.js"></script>
     <script src="app.js"></script>
     <script src="test.js"></script>
 </body>

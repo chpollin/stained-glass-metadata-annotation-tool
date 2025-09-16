@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVMA Annotation Tool - MVP (EXPERIMENT)</title>
+    <p>
+        This is a demo for a presentation; code for the tool created by AI; original data: https://corpusvitrearum.de/cvma-digital/bildarchiv.html via https://nfdi4culture.de/resources/knowledge-graph.html; Alpha-Version
+    </p>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .view-btn {
+            padding: 8px 16px;
+            background: #ecf0f1;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        
+        .view-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .item-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        
+        .item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .item-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #ecf0f1;
+        }
+        
+        .item-content {
+            padding: 15px;
+        }
+        
+        .item-id {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .item-label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .meta-badge {
+            padding: 2px 8px;
+            background: #ecf0f1;
+            border-radius: 3px;
+        }
+        
+        .list-view {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .thumbnail {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            position: relative;
+            background: white;
+            max-width: 900px;
+            margin: 50px auto;
+            border-radius: 8px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-close {
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .detail-image {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto 20px;
+            display: block;
+        }
+        
+        .detail-properties {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .property-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
+        }
+        
+        .property-label {
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .property-value {
+            color: #333;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .page-btn {
+            padding: 8px 12px;
+            background: #ecf0f1;
+            color: #333;
+            border: 1px solid #ddd;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .page-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CVMA Stained Glass Annotation Tool</h1>
+            <p>Browse and annotate the Corpus Vitrearum Medii Aevi collection</p>
+        </header>
+        
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-label">Total Items</div>
+                <div class="stat-value" id="totalItems">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Filtered</div>
+                <div class="stat-value" id="filteredItems">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Page</div>
+                <div class="stat-value" id="currentPage">-</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by label, period, or ID...">
+                <button onclick="performSearch()">Search</button>
+                <button onclick="clearSearch()">Clear</button>
+                <button onclick="toggleFilters()" id="filterToggle" style="background:#28a745;">
+                    Show Filters
+                </button>
+            </div>
+            
+            <!-- Advanced Filters Panel -->
+            <div id="filtersPanel" style="display:none;background:#f8f9fa;padding:15px;margin-top:10px;border-radius:6px;border:1px solid #dee2e6;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;">
+                    
+                    <!-- Period Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Period Range</label>
+                        <div style="display:flex;gap:5px;align-items:center;">
+                            <input type="number" id="periodFrom" placeholder="From" min="1100" max="2000" 
+                                style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <span>-</span>
+                            <input type="number" id="periodTo" placeholder="To" min="1100" max="2000"
+                                style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                        </div>
+                    </div>
+                    
+                    <!-- Location Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Locations</label>
+                        <select id="locationFilter" multiple style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <!-- Subject Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Subjects</label>
+                        <select id="subjectFilter" multiple style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <!-- Element Type Filter -->
+                    <div>
+                        <label style="display:block;font-weight:500;margin-bottom:5px;">Element Types</label>
+                        <select id="elementTypeFilter" multiple style="width:100%;min-height:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px;display:flex;gap:10px;">
+                    <button onclick="applyFilters()" style="background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">
+                        Apply Filters
+                    </button>
+                    <button onclick="clearAllFilters()" style="background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+            
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div class="view-toggle">
+                    <button class="view-btn active" onclick="setView('grid')">Grid View</button>
+                    <button class="view-btn" onclick="setView('list')">List View</button>
+                </div>
+                
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <input type="file" id="importFile" accept=".json" style="display:none;" onchange="handleFileImport(event)">
+                    <button onclick="document.getElementById('importFile').click()" style="background:#17a2b8;">
+                        Import Annotations
+                    </button>
+                    
+                    <div style="display:flex;align-items:center;gap:5px;padding:5px;background:white;border-radius:4px;">
+                        <label style="font-size:12px;margin:0;">
+                            <input type="radio" name="exportFormat" value="simple" checked> Simple
+                        </label>
+                        <label style="font-size:12px;margin:0;">
+                            <input type="radio" name="exportFormat" value="cidoc"> CIDOC
+                        </label>
+                        <label style="font-size:12px;margin:0;">
+                            <input type="radio" name="exportFormat" value="combined"> Both
+                        </label>
+                    </div>
+                    
+                    <button onclick="exportWithFormat()" style="background:#6c757d;">
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">Loading CVMA data...</div>
+        <div id="error" class="error hidden"></div>
+        
+        <div id="gridView" class="grid-view hidden"></div>
+        <div id="listView" class="list-view hidden"></div>
+        
+        <div id="pagination" class="pagination hidden"></div>
+    </div>
+    
+    <div id="modal" class="modal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modalTitle">Item Details</h2>
+                <span class="modal-close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+    
+    <script src="cidoc-mapper.js"></script>
+    <script src="cidoc-validator.js"></script>
+    <script src="app.js"></script>
+    <script src="test.js"></script>
+</body>
+</html>
